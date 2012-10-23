@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style>
+			body {
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+			}
+
+			#ipopover {
+				border: 0;
+				width: 700px;
+				height: 500px;
+				z-index: 1;
+				float: left;
+			}
+
+			#icon-hider {
+				z-index: 2;
+				background-color: #FFF;
+				height: 30px;
+				width: 110px;
+				float: left;
+				margin-left: -110px;
+				padding-top: 12px;
+				font-size: 15px;
+			}
+
+			a {
+				font-family: Helmet, Freesans, sans-serif;
+				color: #307EB6;
+				text-decoration: none;
+			}
+
+			#loading-div {
+				z-index: 3;
+				float: left;
+				width: 700px;
+				height: 500px;
+				background-color: #FFF;
+				margin-left: -700px;
+			}
+
+			#loading-icon {
+				width: 32px;
+				height: 32px;
+				margin: 234px 334px;
+			}
+
+			#join-link {
+				z-index: 2;
+				background-color: #FFF;
+				height: 30px;
+				width: 110px;
+				float: left;
+				margin-left: -267px;
+				margin-top: 427px;
+				font-size: 13px;
+			}
+
+		</style>
+		<script>
+
+			safari.application.addEventListener('message', messageHandler, false);
+			safari.application.addEventListener('popover', popoverHandler, true);
+			safari.application.addEventListener('activate', activateHandler, true);
+			safari.application.addEventListener('navigate', navigateHandler, true);
+
+			var loggedState = null;
+
+			function messageHandler (event) {
+
+				if(event.name == 'putUrl') {
+
+					var url = event.message;
+
+					var ipopover = document.getElementById('ipopover');
+
+					showLoader(false);
+
+					if(ipopover.src != 'http://www.delicious.com/save/get_iframe_savelink' + url) {
+
+						showLoader(true);
+
+						if (isLogged()) {
+
+							ipopover.src = 'http://www.delicious.com/save/get_iframe_savelink' + url;
+
+						} else {
+
+							ipopover.src = 'http://www.delicious.com/save/get_iframe_login';
+							showJoinLink();
+						}
+					}
+				}
+			}
+
+			function showJoinLink() {
+			}
+
+			function isLogged () {
+
+				if (loggedState == null || loggedState == false) {
+					
+					//console.log('perform check login');
+
+
+					var req = false;
+
+					try {
+
+						req = new XMLHttpRequest();
+						req.open('GET', 'http://www.delicious.com/save/get_iframe_savelink?url=http://www.meneame.net', false);
+						req.send('');
+
+					} catch (e) {
+
+						return false;
+					}
+
+					if (req.status == 200) {
+
+						loggedState = true;
+						return true;
+
+					} else {
+
+						loggedState = false;
+						return false;
+					}
+				} else {
+
+					//console.log('bypass check login');
+
+					return loggedState;
+				}
+			}
+
+			function popoverHandler (event) {
+
+				if (event.target.identifier === 'popover') {
+
+					showLoader(true);
+
+					safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+				}
+			}
+
+			function activateHandler (event) {
+
+				showLoader(true);
+
+				safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+			}
+
+			function navigateHandler (event) {
+
+				showLoader(true);
+
+				checkIfDelicious();
+
+				safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+			}
+
+			function hidePopover () {
+
+				safari.extension.popovers[0].hide();
+
+				safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+			}
+
+			
+			window.addEventListener('message', receiveMessage, false);
+ 
+			function receiveMessage (event) {
+
+				if (event.origin === 'http://www.delicious.com') {
+
+					if (event.data == 'destroy_bookmarklet') {
+
+						hidePopover();
+
+					} else if (event.data == 'savelink_succeeded') {
+
+						hidePopover();
+						document.getElementById('ipopover').src = '';
+						safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+
+					} else if (event.data == 'login_succeeded') {
+
+						loggedState = true;
+						showLoader(true);
+						safari.application.activeBrowserWindow.activeTab.page.dispatchMessage('getUrl', false);
+					}
+				}
+			}
+
+			function openLinkInNewTab (url) {
+
+				safari.application.activeBrowserWindow.openTab().url = url;
+				safari.extension.popovers[0].hide();
+			}
+
+			function showLoader (show) {
+
+				document.getElementById('loading-div').style.visibility = show ? 'visible' : 'hidden';
+
+				if (document.getElementById('ipopover').src == 'http://www.delicious.com/save/get_iframe_login') {
+					document.getElementById('join-link').style.visibility = show ? 'hidden' : 'visible';
+				}
+			}
+
+			function checkIfDelicious () {
+
+				var url = safari.application.activeBrowserWindow.activeTab.url;
+
+				if (url.search('delicious.com/login') != -1 || url.search('logout=1') != -1 || url.search('delicious.com/join') != -1) {
+
+					showLoader(true);
+					loggedState = null;
+				}
+			}
+
+		</script>
+	</head>
+	<body>
+		<iframe id="ipopover" onload="showLoader(false)"></iframe>
+		<div id="icon-hider"><a href="#" onclick="openLinkInNewTab('http://www.delicious.com');">Go to delicious</a></div>
+		<div id="loading-div"><img id="loading-icon" src="loading.gif" /></div>
+		<div id="join-link"><p><a href="#" onclick="openLinkInNewTab('http://www.delicious.com/register');">Join Delicious.</a></p></div>
+	</body>
+</html>
